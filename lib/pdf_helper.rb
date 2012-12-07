@@ -2,15 +2,29 @@ module PdfHelper
   require 'wicked_pdf'
   require 'wicked_pdf_tempfile'
 
-  def self.included(base)
-    # Protect from trying to augment modules that appear
-    # as the result of adding other gems.
-    return if base != ActionController::Base
+  if Rails.version < "3.1"
+    def self.included(base)
+      # Protect from trying to augment modules that appear
+      # as the result of adding other gems.
+      return if base != ActionController::Base
 
-    base.class_eval do
-      alias_method_chain :render, :wicked_pdf
-      alias_method_chain :render_to_string, :wicked_pdf
-      after_filter :clean_temp_files
+      base.class_eval do
+        alias_method_chain :render, :wicked_pdf
+        alias_method_chain :render_to_string, :wicked_pdf
+        after_filter :clean_temp_files
+      end
+    end
+  else
+    def self.included(base)
+      base.class_eval do
+        after_filter :clean_temp_files
+      end
+    end
+    ActionController::Renderers.add :pdf do |obj, options|
+      log_pdf_creation
+      options[:basic_auth] = set_basic_auth(options)
+      options.delete(:pdf)
+      make_pdf((WickedPdf.config || {}).merge(options))
     end
   end
 
